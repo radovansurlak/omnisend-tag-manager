@@ -2,15 +2,20 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const request = require('request-promise-native');
 const cors = require('cors');
+const helmet = require('helmet');
+
+require('dotenv').config();
 
 const app = express();
-const port = 3000;
 
+app.use(helmet());
 app.use(cors());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-app.post('/klow', async (req, res) => {
+const { API_KEY } = process.env;
+
+app.post('/updateTags', async (req, res) => {
   const { email, language } = req.body;
 
   // TODO: Get contact ID by email
@@ -25,30 +30,37 @@ app.post('/klow', async (req, res) => {
         offset: '0',
       },
       headers: {
-        'x-api-key':
-          '5e6a23ca8a48f751fdd6a184-UxzNbzBp5r3Wcix48DVKqjKs89Z51tJWVzvB6B2TIsQi6tnLs0',
+        'x-api-key': API_KEY,
       },
       body: '{}',
     }),
   );
 
-  const { contactID } = response.contacts[0];
+  let contactID;
+
+  try {
+    const [data] = response.contacts;
+    ({ contactID } = data);
+  } catch (error) {
+    console.log(error);
+    return res.json({ success: false });
+  }
 
   // TODO: Update the contact tag to the specified language
-  const updateResponse = request({
+  const updateResponse = await request({
     method: 'PATCH',
     url: `https://api.omnisend.com/v3/contacts/${contactID}`,
     headers: {
       'content-type': 'application/json',
-      'x-api-key':
-        '5e6a23ca8a48f751fdd6a184-UxzNbzBp5r3Wcix48DVKqjKs89Z51tJWVzvB6B2TIsQi6tnLs0',
+      'x-api-key': API_KEY,
     },
     body: { tags: [language] },
     json: true,
   });
 
-  console.log(updateResponse);
   res.json(updateResponse);
 });
+
+const port = 3000 || process.env.PORT;
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
